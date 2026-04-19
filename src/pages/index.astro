@@ -1,0 +1,12 @@
+---
+import { getMe, AuthError } from '../lib/api'
+
+const cookie = Astro.request.headers.get('cookie') ?? ''
+try {
+  await getMe(cookie)
+  return Astro.redirect('/dashboard')
+} catch (e) {
+  if (e instanceof AuthError) return Astro.redirect('/auth/login')
+  throw e
+}
+---

@@ -1,0 +1,11 @@
+---
+import { logout } from '../../lib/api'
+
+const cookie = Astro.request.headers.get('cookie') ?? ''
+try {
+  await logout(cookie)
+} catch {
+  // si falla el logout en el backend igual redirigimos
+}
+return Astro.redirect('/auth/login')
+---

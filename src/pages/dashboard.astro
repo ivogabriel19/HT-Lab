@@ -1,0 +1,281 @@
+---
+import Layout from '../layouts/Layout.astro'
+import { getMe, getStadiumAnalysis, AuthError } from '../lib/api'
+import type { StadiumAnalysis } from '../lib/api'
+import Simulator from '../components/Simulator'
+
+const cookie = Astro.request.headers.get('cookie') ?? ''
+
+// Gate: si no está autenticado, redirigir al login
+let user
+try {
+  user = await getMe(cookie)
+} catch (e) {
+  if (e instanceof AuthError) return Astro.redirect('/auth/login')
+  throw e
+}
+
+// Cargar análisis del estadio (no-fatal: mostramos error inline si falla)
+let stadium: StadiumAnalysis | null = null
+let stadiumError: string | null = null
+try {
+  stadium = await getStadiumAnalysis(cookie)
+} catch (e) {
+  if (e instanceof AuthError) return Astro.redirect('/auth/login')
+  stadiumError = e instanceof Error ? e.message : 'Error al cargar el estadio'
+}
+
+const verdictLabel = {
+  expand:    { text: 'Expandir',  color: '#4ade80' },
+  optimal:   { text: 'Óptimo',   color: '#60a5fa' },
+  watch:     { text: 'Atención', color: '#fbbf24' },
+  oversized: { text: 'Sobredimensionado', color: '#f97316' },
+} as const
+
+function fmt(n: number) {
+  return n.toLocaleString('es-AR')
+}
+---
+
+<Layout title={`HT Lab — ${user.teamName}`}>
+  <div class="topbar">
+    <span class="team-name">{user.teamName}</span>
+    <a href="/auth/logout" class="logout-btn">Cerrar sesión</a>
+  </div>
+
+  {stadiumError && (
+    <div class="error-banner">
+      Error al cargar análisis de estadio: {stadiumError}
+    </div>
+  )}
+
+  {stadium && (
+    <section class="stadium-section">
+      <div class="section-header">
+        <h2>{stadium.arena.arenaName}</h2>
+        <span
+          class="verdict-badge"
+          style={`background: ${verdictLabel[stadium.recommendation.verdict.status].color}22; color: ${verdictLabel[stadium.recommendation.verdict.status].color}; border-color: ${verdictLabel[stadium.recommendation.verdict.status].color}44`}
+        >
+          {verdictLabel[stadium.recommendation.verdict.status].text}
+        </span>
+      </div>
+      <p class="verdict-message">{stadium.recommendation.verdict.message}</p>
+
+      <div class="cards-grid">
+        <!-- Capacidad -->
+        <div class="card">
+          <h3>Capacidad actual</h3>
+          <div class="stat-row"><span>Total</span><strong>{fmt(stadium.arena.totalCapacity)}</strong></div>
+          <div class="stat-row"><span>Tribunas</span><span>{fmt(stadium.arena.capacity.terraces)}</span></div>
+          <div class="stat-row"><span>Básico</span><span>{fmt(stadium.arena.capacity.basic)}</span></div>
+          <div class="stat-row"><span>Techado</span><span>{fmt(stadium.arena.capacity.roofed)}</span></div>
+          <div class="stat-row"><span>VIP</span><span>{fmt(stadium.arena.capacity.vip)}</span></div>
+        </div>
+
+        <!-- Fans & Asistencia -->
+        <div class="card">
+          <h3>Fans y asistencia</h3>
+          <div class="stat-row"><span>Fanáticos</span><strong>{fmt(stadium.fans.count)}</strong></div>
+          <div class="stat-row"><span>Humor</span><span>{stadium.fans.mood} / 10</span></div>
+          <div class="stat-row"><span>Asistencia esperada</span><span>{fmt(stadium.attendance.expected)}</span></div>
+          <div class="stat-row"><span>Ocupación</span><span>{(stadium.attendance.fillRate * 100).toFixed(1)}%</span></div>
+          <div class="stat-row"><span>Partidos/temporada</span><span>{stadium.attendance.matchesPerSeason}</span></div>
+        </div>
+
+        <!-- Financials -->
+        <div class="card">
+          <h3>Finanzas</h3>
+          <div class="stat-row"><span>Ingreso bruto semanal</span><span>$ {fmt(stadium.financials.currentWeeklyGrossIncome)}</span></div>
+          <div class="stat-row"><span>Mantenimiento semanal</span><span>$ {fmt(stadium.financials.currentWeeklyMaintenance)}</span></div>
+          <div class="stat-row"><span>Ingreso neto semanal</span><strong>$ {fmt(stadium.financials.currentWeeklyNetIncome)}</strong></div>
+          <div class="stat-row"><span>Ingreso neto temporada</span><strong>$ {fmt(stadium.financials.currentSeasonNetIncome)}</strong></div>
+        </div>
+
+        <!-- Recomendación -->
+        <div class="card">
+          <h3>Recomendación</h3>
+          <div class="stat-row"><span>Capacidad óptima</span><strong>{fmt(stadium.recommendation.optimalCapacity)}</strong></div>
+          {stadium.recommendation.roi.expansionNeeded && (
+            <>
+              <div class="stat-row"><span>Asientos adicionales</span><span>+{fmt(stadium.recommendation.roi.deltaSeats!)}</span></div>
+              <div class="stat-row"><span>Costo de construcción</span><span>$ {fmt(stadium.recommendation.roi.buildCost!)}</span></div>
+              <div class="stat-row"><span>Ganancia semanal extra</span><span>$ {fmt(stadium.recommendation.roi.weeklyIncomeGain!)}</span></div>
+              <div class="stat-row">
+                <span>Retorno en partidos</span>
+                <span>{stadium.recommendation.roi.paybackWeeks != null ? `${stadium.recommendation.roi.paybackWeeks} partidos` : 'No rentable'}</span>
+              </div>
+            </>
+          )}
+          {!stadium.recommendation.roi.expansionNeeded && (
+            <p class="no-action">No se requiere expansión actualmente.</p>
+          )}
+        </div>
+      </div>
+
+      <p class="meta">
+        Generado {new Date(stadium.meta.generatedAt).toLocaleString('es-AR')} · v{stadium.meta.modelVersion}
+      </p>
+    </section>
+  )}
+
+  <section class="simulator-section">
+    <h2>Simulador de temporada <span class="tag">datos de ejemplo</span></h2>
+    <p class="simulator-note">
+      El simulador usa datos reales en la próxima versión. Por ahora podés explorar los controles con valores de ejemplo.
+    </p>
+    <Simulator client:load />
+  </section>
+</Layout>
+
+<style>
+  .topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 0;
+    margin-bottom: 1.5rem;
+    border-bottom: 1px solid #2a2a4a;
+  }
+
+  .team-name {
+    font-weight: 600;
+    color: #e0e0ff;
+  }
+
+  .logout-btn {
+    font-size: 0.85rem;
+    color: #888;
+    text-decoration: none;
+    padding: 0.3rem 0.75rem;
+    border: 1px solid #2a2a4a;
+    border-radius: 6px;
+    transition: color 0.2s, border-color 0.2s;
+  }
+
+  .logout-btn:hover {
+    color: #e0e0ff;
+    border-color: #4a4a6a;
+  }
+
+  .error-banner {
+    background: #7f1d1d22;
+    border: 1px solid #7f1d1d;
+    color: #fca5a5;
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    margin-bottom: 1.5rem;
+  }
+
+  .stadium-section {
+    margin-bottom: 3rem;
+  }
+
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .section-header h2 {
+    color: #e0e0ff;
+    font-size: 1.4rem;
+    margin: 0;
+  }
+
+  .verdict-badge {
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.2rem 0.6rem;
+    border-radius: 999px;
+    border: 1px solid;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .verdict-message {
+    color: #888;
+    margin-bottom: 1.5rem;
+    font-size: 0.95rem;
+  }
+
+  .cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1rem;
+  }
+
+  .card {
+    background: #1a1a2e;
+    border: 1px solid #2a2a4a;
+    border-radius: 10px;
+    padding: 1.25rem;
+  }
+
+  .card h3 {
+    color: #9090cc;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin: 0 0 1rem;
+  }
+
+  .stat-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 0.3rem 0;
+    border-bottom: 1px solid #1e1e3a;
+    font-size: 0.9rem;
+    color: #aaa;
+  }
+
+  .stat-row:last-child {
+    border-bottom: none;
+  }
+
+  .stat-row strong {
+    color: #e0e0ff;
+  }
+
+  .no-action {
+    color: #888;
+    font-size: 0.85rem;
+    margin-top: 0.5rem;
+  }
+
+  .meta {
+    font-size: 0.75rem;
+    color: #555;
+    text-align: right;
+  }
+
+  .simulator-section h2 {
+    color: #e0e0ff;
+    font-size: 1.2rem;
+    margin-bottom: 0.25rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .tag {
+    font-size: 0.7rem;
+    font-weight: 500;
+    background: #2a2a1a;
+    color: #fbbf24;
+    border: 1px solid #44440a;
+    padding: 0.15rem 0.5rem;
+    border-radius: 999px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .simulator-note {
+    color: #666;
+    font-size: 0.85rem;
+    margin-bottom: 1.5rem;
+  }
+</style>

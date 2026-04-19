@@ -1,0 +1,63 @@
+---
+import Layout from '../../layouts/Layout.astro'
+
+const API_URL = import.meta.env.API_URL ?? 'http://localhost:3000'
+---
+
+<Layout title="HT Lab — Iniciar sesión">
+  <div class="login-container">
+    <div class="login-card">
+      <h2>Bienvenido a HT Lab</h2>
+      <p>Conectá tu cuenta de Hattrick para ver el análisis de tu estadio.</p>
+      <a href={`${API_URL}/auth/login`} class="login-btn">
+        Iniciar sesión con Hattrick
+      </a>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .login-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 60vh;
+  }
+
+  .login-card {
+    background: #1a1a2e;
+    border: 1px solid #2a2a4a;
+    border-radius: 12px;
+    padding: 2.5rem 3rem;
+    text-align: center;
+    max-width: 400px;
+    width: 100%;
+  }
+
+  .login-card h2 {
+    color: #e0e0ff;
+    margin-bottom: 0.75rem;
+    font-size: 1.5rem;
+  }
+
+  .login-card p {
+    color: #888;
+    margin-bottom: 2rem;
+    line-height: 1.5;
+  }
+
+  .login-btn {
+    display: inline-block;
+    background: #4f46e5;
+    color: #fff;
+    padding: 0.75rem 1.75rem;
+    border-radius: 8px;
+    text-decoration: none;
+    font-weight: 600;
+    transition: background 0.2s;
+  }
+
+  .login-btn:hover {
+    background: #4338ca;
+  }
+</style>

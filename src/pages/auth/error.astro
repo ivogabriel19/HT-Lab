@@ -1,0 +1,96 @@
+---
+import Layout from '../../layouts/Layout.astro'
+
+const reason = Astro.url.searchParams.get('reason') ?? 'unknown'
+
+const messages: Record<string, string> = {
+  request_token_failed: 'No se pudo iniciar el proceso de autorización con Hattrick. Intentá de nuevo.',
+  missing_params:       'La respuesta de Hattrick llegó incompleta. Intentá de nuevo.',
+  unknown_token:        'La sesión de login expiró. Volvé a iniciar el proceso desde el principio.',
+  access_token_failed:  'Hattrick rechazó el acceso. Si denegaste los permisos, tenés que volver a autorizarlos.',
+}
+
+const message = messages[reason] ?? 'Ocurrió un error desconocido durante el login.'
+---
+
+<Layout title="HT Lab — Error de autenticación">
+  <div class="error-container">
+    <div class="error-card">
+      <div class="error-icon">✕</div>
+      <h2>Error al iniciar sesión</h2>
+      <p>{message}</p>
+      <p class="reason-code">Código: <code>{reason}</code></p>
+      <a href="/auth/login" class="retry-btn">Volver a intentar</a>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .error-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 60vh;
+  }
+
+  .error-card {
+    background: #1a1a2e;
+    border: 1px solid #4a1a1a;
+    border-radius: 12px;
+    padding: 2.5rem 3rem;
+    text-align: center;
+    max-width: 420px;
+    width: 100%;
+  }
+
+  .error-icon {
+    width: 48px;
+    height: 48px;
+    background: #7f1d1d;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 1rem;
+    font-size: 1.25rem;
+    color: #fca5a5;
+  }
+
+  .error-card h2 {
+    color: #fca5a5;
+    margin-bottom: 0.75rem;
+  }
+
+  .error-card p {
+    color: #aaa;
+    line-height: 1.5;
+    margin-bottom: 0.5rem;
+  }
+
+  .reason-code {
+    font-size: 0.8rem;
+    margin-bottom: 2rem;
+  }
+
+  .reason-code code {
+    background: #0f0f1a;
+    padding: 0.1rem 0.4rem;
+    border-radius: 4px;
+    color: #f87171;
+  }
+
+  .retry-btn {
+    display: inline-block;
+    background: #4f46e5;
+    color: #fff;
+    padding: 0.75rem 1.75rem;
+    border-radius: 8px;
+    text-decoration: none;
+    font-weight: 600;
+    transition: background 0.2s;
+  }
+
+  .retry-btn:hover {
+    background: #4338ca;
+  }
+</style>
